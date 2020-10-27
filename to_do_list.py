@@ -1,3 +1,13 @@
+
+# Db structure:
+# - db file: todo.db
+# - table name: task
+# - Columns include:
+# -- id (integer type, primary key)
+# -- task (string)
+# -- deadline (date, default is today())
+
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Date
@@ -6,7 +16,7 @@ from datetime import datetime, timedelta
 
 db_file_name = "todo.db"
 test_db_file_name = "todo.s3db"
-engine = create_engine(f'sqlite:///{db_file_name}?check_same_thread=False')
+engine = create_engine(f'sqlite:///{test_db_file_name}?check_same_thread=False')
 
 Base = declarative_base()
 
@@ -38,14 +48,29 @@ class ToDoList:
         rows = self.session.query(Task).order_by(Task.deadline).all()
         return rows
 
+    def get_missed_tasks(self):
+        rows = self.session.query(Task).filter(Task.deadline < datetime.today().date()).order_by(Task.deadline).all()
+        return rows
+
     def add_task(self, task):
         self.session.add(task)
         self.session.commit()
 
+    def delete_task(self, task):
+        self.session.delete(task)
+        self.session.commit()
+
+    # def get_week_tasks(self):
+    #     today = datetime.today().date()
+    #     seven_days_after_today = today + timedelta(days=7)
+    #     rows = self.session.query(Task).filter(Task.deadline.between(today, seven_days_after_today)).order_by(
+    #         Task.deadline).all()
+    #     return rows
+
     def run(self):
         while True:
             print("1) Today's tasks", "2) Week's tasks",
-                  "3) All tasks", "4) Add task", "0) Exit", sep="\n")
+                  "3) All tasks", "4) Missed tasks", "5) Add task", "6) Delete task", "0) Exit", sep="\n")
             user_input = input()
 
             if user_input == "0":  # Exit
@@ -83,17 +108,36 @@ class ToDoList:
                 tasks = self.get_all_tasks()
                 if len(tasks) == 0:
                     print("Nothing to do!")
-                    break
+                    continue
                 for idx, task in enumerate(tasks):
                     formatted_date = task.deadline.strftime('%#d %b')
                     print(f"{idx + 1}. {task.task}. {formatted_date}")
 
             elif user_input == "4":
+                print("Missed tasks:")
+                tasks = self.get_missed_tasks()
+                for idx, task in enumerate(tasks):
+                    formatted_date = task.deadline.strftime("%#d %b")
+                    print(f"{idx + 1}. {task}. {formatted_date}")
+
+            elif user_input == "5":  # Add task
                 task = input("Enter task:\n")
                 date_string = input("Enter deadline:\n")
                 deadline = datetime.strptime(date_string, "%Y-%m-%d").date()
                 self.add_task(Task(task=task, deadline=deadline))
                 print("The task has been added!")
+
+            elif user_input == "6":
+                print("Choose the number of the task you want to delete:")
+                tasks = self.get_all_tasks()
+                for idx, task in enumerate(tasks):
+                    formatted_date = task.deadline.strftime("%#d %b")
+                    print(f"{idx + 1}. {task}. {formatted_date}")
+
+                user_input = int(input())
+                selected_task = tasks[user_input - 1]
+                self.delete_task(selected_task)
+                print("This task has been deleted!")
 
 
 to_do_list = ToDoList()

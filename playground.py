@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 
 db_file_name = "todo.db"
 test_db_file_name = "todo.s3db"
-engine = create_engine(f'sqlite:///{db_file_name}?check_same_thread=False')
+engine = create_engine(f'sqlite:///{test_db_file_name}?check_same_thread=False')
 
 Base = declarative_base()
 
@@ -49,8 +49,16 @@ class ToDoList:
         rows = self.session.query(Task).order_by(Task.deadline).all()
         return rows
 
+    def get_missed_tasks(self):
+        rows = self.session.query(Task).filter(Task.deadline < datetime.today().date()).order_by(Task.deadline).all()
+        return rows
+
     def add_task(self, task):
         self.session.add(task)
+        self.session.commit()
+
+    def delete_task(self, task):
+        self.session.delete(task)
         self.session.commit()
 
     # def get_week_tasks(self):
@@ -63,7 +71,7 @@ class ToDoList:
     def run(self):
         while True:
             print("1) Today's tasks", "2) Week's tasks",
-                  "3) All tasks", "4) Add task", "0) Exit", sep="\n")
+                  "3) All tasks", "4) Missed tasks", "5) Add task", "6) Delete task", "0) Exit", sep="\n")
             user_input = input()
 
             if user_input == "0":  # Exit
@@ -101,18 +109,67 @@ class ToDoList:
                 tasks = self.get_all_tasks()
                 if len(tasks) == 0:
                     print("Nothing to do!")
-                    break
+                    continue
                 for idx, task in enumerate(tasks):
-                    formatted_date = task.deadline.strftime('%#d %b')
+                    # Format date according to '2 Apr'
+                    # Interesting discovery here: I use '#' instead of '-' to get a non-zero indexed date
+                    # (i.e. 1 - 9 instead of 01 -09). '-' throws a ValueError on Windows while '#' doesn't
+                    formatted_date = task.deadline.strftime(
+                        '%#d %b')
                     print(f"{idx + 1}. {task.task}. {formatted_date}")
 
             elif user_input == "4":
+                print("Missed tasks:")
+                tasks = self.get_missed_tasks()
+                for idx, task in enumerate(tasks):
+                    formatted_date = task.deadline.strftime("%#d %b")
+                    print(f"{idx + 1}. {task}. {formatted_date}")
+
+            elif user_input == "5":  # Add task
                 task = input("Enter task:\n")
                 date_string = input("Enter deadline:\n")
                 deadline = datetime.strptime(date_string, "%Y-%m-%d").date()
                 self.add_task(Task(task=task, deadline=deadline))
                 print("The task has been added!")
 
+            elif user_input == "6":
+                print("Choose the number of the task you want to delete:")
+                tasks = self.get_all_tasks()
+                for idx, task in enumerate(tasks):
+                    formatted_date = task.deadline.strftime("%#d %b")
+                    print(f"{idx + 1}. {task}. {formatted_date}")
+
+                user_input = int(input())
+                selected_task = tasks[user_input - 1]
+                self.delete_task(selected_task)
+                print("This task has been deleted!")
+
 
 to_do_list = ToDoList()
 to_do_list.run()
+
+# Process flow
+
+# 2 New Changes:
+# - Missed Tasks
+# - Delete task
+
+
+# Prepare to add new features
+# - Update options
+
+# Missed tasks (Prints all tasks whose deadline is before today and orders them by deadline date)
+# - User selects option 4
+# - Get all tasks whose deadline date is earlier than today
+# - Order them by deadline date
+# - Print "Missed tasks:"
+# - Print all the tasks on a different line with format: "Task 1 19 Apr"
+
+
+# Delete task (Deletes a selected task):
+# - User selects option 6
+# - Print "Choose the number of the task you want to delete:"
+# - Print all tasks ordered by deadline date
+# - User selects option
+# - Delete selected task
+# - Print "The task has been deleted!"
