@@ -41,3 +41,4 @@ Once you run the program, you will be presented with a menu:
 ## Dependencies
 - Python 3.x
 - SQLAlchemy
+- SQLite
